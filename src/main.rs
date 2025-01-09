@@ -1,8 +1,10 @@
+use std::sync::{Arc, Mutex};
 use std::net::{IpAddr, UdpSocket};
 
 use r2d2::Pool;
 use uuid::Uuid;
 use serde_json::json;
+use dashmap::DashMap;
 use actix_files::Files;
 use rusqlite::{params, Result};
 use qrcodegen::{QrCode, QrCodeEcc};
@@ -26,6 +28,7 @@ const PORT: u16 = 6969;
 type UnixTimeStamp = i64;
 type DbPool = Pool::<SqliteConnectionManager>;
 
+#[repr(u8)]
 #[derive(Debug, FromStr, Display, Serialize, Deserialize)]
 enum Status {
     Done,
@@ -37,46 +40,79 @@ enum Status {
 struct Note {
     #[serde(skip_deserializing)]
     uuid: Uuid,
-    title: String,
+    #[serde(skip)]
+    from_db: bool,
+    title: Box::<str>,
     status: Status,
     mod_time: UnixTimeStamp,
-    description: String,
+    description: Box::<str>,
 }
 
+type Notes = DashMap::<Uuid, Arc::<Note>>;
+
 struct Server {
+    notes: Notes,
+    removed_notes: Mutex::<Vec::<Arc::<Note>>>,
+
     qr_bytes: web::Bytes,
-    db_pool: Data::<DbPool>
+    db_pool: Data::<DbPool>,
 }
 
 impl Server {
     #[inline]
-    fn insert_note(&self, note: &Note) -> Result::<usize, rusqlite::Error> {
-        let conn = self.db_pool.get().unwrap();
-        conn.execute(
-            "INSERT INTO notes (uuid, title, description, status, mod_time) VALUES (?1, ?2, ?3, ?4, ?5)",
-            params![
-                note.uuid.to_string(),
-                note.title,
-                note.description,
-                note.status.to_string(),
-                note.mod_time
-            ]
-        )
+    fn insert_note(&self, note: Note) -> Uuid {
+        let uuid = Uuid::new_v4();
+        self.notes.insert(uuid, Arc::new(note));
+        uuid
     }
 
-    fn get_notes(&self) -> Result::<Vec::<Note>> {
+    fn get_notes(&self) -> Result::<Notes> {
         let conn = self.db_pool.get().unwrap();
         let mut stmt = conn.prepare("SELECT uuid, title, description, status, mod_time FROM notes")?;
         let notes = stmt.query_map([], |row| {
-            Ok(Note {
-                uuid: Uuid::parse_str(&row.get::<_, String>(0)?).expect("invalid UUID"),
+            let uuid = Uuid::parse_str(&row.get::<_, String>(0)?).expect("invalid UUID");
+            Ok((Uuid::clone(&uuid), Arc::new(Note {
+                uuid,
+                from_db: true,
                 title: row.get(1)?,
                 description: row.get(2)?,
                 status: Status::from_str(&row.get::<_, String>(3)?).unwrap(),
                 mod_time: row.get(4)?
-            })
+            })))
         })?.collect::<Result::<_, _>>()?;
         Ok(notes)
+    }
+}
+
+#[inline]
+#[get("/qr.png")]
+async fn qr_code(state: Data::<Server>) -> impl Responder {
+    HttpResponse::Ok().content_type("image/png").body(web::Bytes::clone(&state.qr_bytes))
+}
+
+#[put("/new-note")]
+async fn new_note(state: Data::<Server>, note: Json::<Note>) -> impl Responder {
+    let mut note = note.into_inner();
+    note.from_db = false;
+    let uuid = state.insert_note(note);
+    HttpResponse::Ok().json(json!({"uuid": uuid}))
+}
+
+#[inline]
+#[get("/notes")]
+async fn get_notes(state: Data::<Server>) -> impl Responder {
+    let notes = state.notes.iter().map(|e| Arc::clone(&e.value())).collect::<Vec::<_>>();
+    HttpResponse::Ok().body(serde_json::to_string(&notes).unwrap())
+}
+
+#[delete("/remove-note/{uuid}")]
+async fn remove_note(state: Data::<Server>, uuid: Path::<Uuid>) -> impl Responder {
+    let uuid = uuid.into_inner();
+    if let Some((.., note)) = state.notes.remove(&uuid) {
+        state.removed_notes.lock().unwrap().push(note);
+        HttpResponse::Ok().json(json!({"status": "note removed successfully"}))
+    } else {
+        HttpResponse::NotFound().json(json!({"status": "note not found"}))
     }
 }
 
@@ -87,66 +123,15 @@ fn get_default_local_ip_addr() -> Option::<IpAddr> {
     sock.local_addr().ok().map(|addr| addr.ip())
 }
 
-#[get("/qr.png")]
-async fn qr_code(state: Data::<Server>) -> impl Responder {
-    HttpResponse::Ok()
-        .content_type("image/png")
-        .body(web::Bytes::clone(&state.qr_bytes))
-}
-
-#[put("/new-note")]
-async fn new_note(state: Data::<Server>, note: Json::<Note>) -> impl Responder {
-    let mut note = note.into_inner();
-    note.uuid = Uuid::new_v4();
-    if let Err(e) = state.insert_note(&note) {
-        let e = format!("could not insert note: {e}");
-        eprintln!("{e}");
-        HttpResponse::InternalServerError().body(e)
-    } else {
-        HttpResponse::Ok().json(json!({"uuid": note.uuid}))
-    }
-}
-
-#[get("/notes")]
-async fn get_notes(state: Data::<Server>) -> impl Responder {
-    match state.get_notes() {
-        Ok(notes) => HttpResponse::Ok().body(serde_json::to_string(&notes).unwrap()),
-        Err(e) => {
-            let e = format!("could not get notes: {e}");
-            eprintln!("{e}");
-            HttpResponse::InternalServerError().body(e)
-        }
-    }
-}
-
-#[delete("/remove-note/{uuid}")]
-async fn remove_note(state: Data::<Server>, uuid: Path::<String>) -> impl Responder {
-    let uuid = uuid.into_inner();
-    let conn = state.db_pool.get().unwrap();
-    let ret = conn.execute(
-        "DELETE FROM notes WHERE uuid = ?1", 
-        params![uuid]
-    );
-
-    match ret {
-        Ok(rows_affected) if rows_affected > 0 => {
-            HttpResponse::Ok().json(json!({"status": "note removed successfully"}))
-        },
-        Ok(_) => HttpResponse::NotFound().json(json!({"status": "note not found"})),
-        Err(e) => {
-            let e = format!("could not delete note: {e}");
-            eprintln!("{e}");
-            HttpResponse::InternalServerError().body(e)
-        }
-    }
-}
-
 #[actix_web::main]
 async fn main() -> std::io::Result::<()> {
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
     let local_ip = get_default_local_ip_addr().unwrap_or_else(|| panic!("could not find local IP address"));
-    let server = Data::new(Server {
+    let mut server = Server {
+        notes: Notes::new(),
+        removed_notes: Mutex::new(Vec::new()),
+
         qr_bytes: {
             let local_addr = format!("http://{local_ip}:{PORT}");
             let qr = QrCode::encode_text(&local_addr, QrCodeEcc::Low).expect("could not encode URL to QR code");
@@ -169,19 +154,43 @@ async fn main() -> std::io::Result::<()> {
             ).expect("could not initialize notes table");
             Data::new(pool)
         }
-    });
+    };
+
+    server.notes = server.get_notes().unwrap();
+
+    let server = Data::new(server);
+    let serverc = Data::clone(&server);
 
     println!("[INFO] serving at: <http://{local_ip}:{PORT}>");
 
     HttpServer::new(move || {
         App::new()
             .wrap(Logger::default())
-            .app_data(Data::clone(&server))
+            .app_data(Data::clone(&serverc))
 
             .service(qr_code)
             .service(new_note)
             .service(get_notes)
             .service(remove_note)
             .service(Files::new("/", "static").index_file("index.html"))
-    }).bind((local_ip, PORT))?.run().await
+    }).bind((local_ip, PORT))?.run().await?;
+
+    let conn = server.db_pool.get().unwrap();
+
+    server.notes.iter().filter(|e| !e.from_db).for_each(|e| {
+        if let Err(e) = conn.execute(
+            "INSERT INTO notes (uuid, title, description, status, mod_time) VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![e.uuid.to_string(), e.title, e.description, e.status.to_string(), e.mod_time]
+        ) {
+            eprintln!("could not insert note into table: {e}")
+        }
+    });
+
+    server.removed_notes.lock().unwrap().iter().map(|e| e.uuid.to_string()).for_each(|uuid| {
+        if let Err(e) = conn.execute("DELETE FROM notes WHERE uuid = ?1", params![uuid]) {
+            eprintln!("could not delete note from table: {e}")
+        }
+    });
+
+    Ok(())
 }
