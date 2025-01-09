@@ -1,19 +1,18 @@
-use std::str::FromStr;
-use std::thread::spawn;
 use std::net::{IpAddr, UdpSocket};
-use std::sync::atomic::{AtomicBool, Ordering};
 
 use r2d2::Pool;
 use uuid::Uuid;
+use serde_json::json;
 use actix_files::Files;
+use rusqlite::{params, Result};
 use qrcodegen::{QrCode, QrCodeEcc};
+use derive_more::{Display, FromStr};
 use serde::{Serialize, Deserialize};
 use r2d2_sqlite::SqliteConnectionManager;
-use rusqlite::{params, Connection, Result};
 use actix_web::{
-    get, post,
-    App, HttpServer, HttpRequest, HttpResponse,
-    Responder, middleware::Logger, web::{self, Path, Data}
+    get, put, delete,
+    App, HttpServer, HttpResponse,
+    Responder, middleware::Logger, web::{self, Path, Data, Json}
 };
 
 mod qr;
@@ -27,38 +26,16 @@ const PORT: u16 = 6969;
 type UnixTimeStamp = i64;
 type DbPool = Pool::<SqliteConnectionManager>;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, FromStr, Display, Serialize, Deserialize)]
 enum Status {
     Done,
     Active,
     Canceled,
 }
 
-impl Status {
-    fn to_str(&self) -> &'static str {
-        match self {
-            Self::Done => "done",
-            Self::Active => "active",
-            Self::Canceled => "canceled"
-        }
-    }
-}
-
-impl FromStr for Status {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "done" => Ok(Self::Done),
-            "active" => Ok(Self::Active),
-            "canceled" => Ok(Self::Canceled),
-            _ => Err(())
-        }
-    }
-}
-
 #[derive(Debug, Serialize, Deserialize)]
 struct Note {
+    #[serde(skip_deserializing)]
     uuid: Uuid,
     title: String,
     status: Status,
@@ -81,9 +58,9 @@ impl Server {
                 note.uuid.to_string(),
                 note.title,
                 note.description,
-                note.status.to_str(),
-                note.mod_time,
-            ],
+                note.status.to_string(),
+                note.mod_time
+            ]
         )
     }
 
@@ -92,17 +69,18 @@ impl Server {
         let mut stmt = conn.prepare("SELECT uuid, title, description, status, mod_time FROM notes")?;
         let notes = stmt.query_map([], |row| {
             Ok(Note {
-                uuid: Uuid::parse_str(&row.get::<_, String>(0)?).expect("Invalid UUID"),
+                uuid: Uuid::parse_str(&row.get::<_, String>(0)?).expect("invalid UUID"),
                 title: row.get(1)?,
                 description: row.get(2)?,
                 status: Status::from_str(&row.get::<_, String>(3)?).unwrap(),
-                mod_time: row.get(4)?,
+                mod_time: row.get(4)?
             })
-        })?.collect::<Result<Vec<Note>, _>>()?;
+        })?.collect::<Result::<_, _>>()?;
         Ok(notes)
     }
 }
 
+#[inline]
 fn get_default_local_ip_addr() -> Option::<IpAddr> {
     let sock = UdpSocket::bind("0.0.0.0:0").ok()?;
     sock.connect("1.1.1.1:80").ok()?;
@@ -116,47 +94,94 @@ async fn qr_code(state: Data::<Server>) -> impl Responder {
         .body(web::Bytes::clone(&state.qr_bytes))
 }
 
+#[put("/new-note")]
+async fn new_note(state: Data::<Server>, note: Json::<Note>) -> impl Responder {
+    let mut note = note.into_inner();
+    note.uuid = Uuid::new_v4();
+    if let Err(e) = state.insert_note(&note) {
+        let e = format!("could not insert note: {e}");
+        eprintln!("{e}");
+        HttpResponse::InternalServerError().body(e)
+    } else {
+        HttpResponse::Ok().json(json!({"uuid": note.uuid}))
+    }
+}
+
+#[get("/notes")]
+async fn get_notes(state: Data::<Server>) -> impl Responder {
+    match state.get_notes() {
+        Ok(notes) => HttpResponse::Ok().body(serde_json::to_string(&notes).unwrap()),
+        Err(e) => {
+            let e = format!("could not get notes: {e}");
+            eprintln!("{e}");
+            HttpResponse::InternalServerError().body(e)
+        }
+    }
+}
+
+#[delete("/remove-note/{uuid}")]
+async fn remove_note(state: Data::<Server>, uuid: Path::<String>) -> impl Responder {
+    let uuid = uuid.into_inner();
+    let conn = state.db_pool.get().unwrap();
+    let ret = conn.execute(
+        "DELETE FROM notes WHERE uuid = ?1", 
+        params![uuid]
+    );
+
+    match ret {
+        Ok(rows_affected) if rows_affected > 0 => {
+            HttpResponse::Ok().json(json!({"status": "note removed successfully"}))
+        },
+        Ok(_) => HttpResponse::NotFound().json(json!({"status": "note not found"})),
+        Err(e) => {
+            let e = format!("could not delete note: {e}");
+            eprintln!("{e}");
+            HttpResponse::InternalServerError().body(e)
+        }
+    }
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result::<()> {
-    // let local_ip = get_default_local_ip_addr().unwrap_or_else(|| panic!("could not find local IP address"));
-    // let server = Data::new(Server {
-    //     qr_bytes: {
-    //         let local_addr = format!("http://{local_ip}:{PORT}");
-    //         let qr = QrCode::encode_text(&local_addr, QrCodeEcc::Low).expect("could not encode URL to QR code");
-    //         gen_qr_png_bytes(&qr).expect("could not generate QR code image").into()
-    //     },
+    env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
-    //     db_pool: {
-    //         let manager = SqliteConnectionManager::file("internotes.db");
-    //         Data::new(Pool::new(manager).unwrap())
-    //     }
-    // });
+    let local_ip = get_default_local_ip_addr().unwrap_or_else(|| panic!("could not find local IP address"));
+    let server = Data::new(Server {
+        qr_bytes: {
+            let local_addr = format!("http://{local_ip}:{PORT}");
+            let qr = QrCode::encode_text(&local_addr, QrCodeEcc::Low).expect("could not encode URL to QR code");
+            gen_qr_png_bytes(&qr).expect("could not generate QR code image").into()
+        },
 
-    // let conn = server.db_pool.get().unwrap();
+        db_pool: {
+            let manager = SqliteConnectionManager::file("internotes.db");
+            let pool = Pool::new(manager).expect("could not initialize db pool");
+            let conn = pool.get().unwrap();
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS notes (
+                    uuid        TEXT PRIMARY KEY,
+                    title       TEXT NOT NULL,
+                    status      TEXT NOT NULL,
+                    mod_time    INTEGER NOT NULL,
+                    description TEXT NOT NULL
+                )",
+                ()
+            ).expect("could not initialize notes table");
+            Data::new(pool)
+        }
+    });
 
-    // conn.execute(
-    //     "CREATE TABLE IF NOT EXISTS notes (
-    //         uuid        TEXT PRIMARY KEY,
-    //         title       TEXT NOT NULL,
-    //         status      TEXT NOT NULL,
-    //         mod_time    INTEGER NOT NULL,
-    //         description TEXT NOT NULL
-    //     )",
-    //     ()
-    // ).unwrap();
+    println!("[INFO] serving at: <http://{local_ip}:{PORT}>");
 
-    // server.insert_note(&Note {
-    //     uuid: Uuid::new_v4(),
-    //     title: "burson".to_owned(),
-    //     status: Status::Active,
-    //     mod_time: 69,
-    //     description: "desc".to_owned()
-    // }).unwrap();
+    HttpServer::new(move || {
+        App::new()
+            .wrap(Logger::default())
+            .app_data(Data::clone(&server))
 
-    // HttpServer::new(move || {
-    //     App::new()
-    //         .service(Files::new("/", "static").index_file("index.html"))
-    // }).bind((local_ip, PORT))?.run().await
-
-    Ok(())
+            .service(qr_code)
+            .service(new_note)
+            .service(get_notes)
+            .service(remove_note)
+            .service(Files::new("/", "static").index_file("index.html"))
+    }).bind((local_ip, PORT))?.run().await
 }
