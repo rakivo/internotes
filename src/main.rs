@@ -60,10 +60,8 @@ struct Server {
 
 impl Server {
     #[inline]
-    fn insert_note(&self, note: Note) -> Uuid {
-        let uuid = Uuid::new_v4();
-        self.notes.insert(uuid, Arc::new(note));
-        uuid
+    fn insert_note(&self, note: Note) {
+        _ = self.notes.insert(note.uuid, Arc::new(note))
     }
 
     fn get_notes(&self) -> Result::<Notes> {
@@ -92,9 +90,15 @@ async fn qr_code(state: Data::<Server>) -> impl Responder {
 
 #[put("/new-note")]
 async fn new_note(state: Data::<Server>, note: Json::<Note>) -> impl Responder {
-    let mut note = note.into_inner();
-    note.from_db = false;
-    let uuid = state.insert_note(note);
+    let uuid = Uuid::new_v4();
+
+    {
+        let mut note = note.into_inner();
+        note.from_db = false;
+        note.uuid = uuid;
+        state.insert_note(note);
+    }
+
     HttpResponse::Ok().json(json!({"uuid": uuid}))
 }
 
