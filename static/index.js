@@ -43,6 +43,7 @@ function displayNotes(notes) {
   notes.forEach(note => {
     const noteElement = document.createElement("div");
     noteElement.className = "note";
+    noteElement.setAttribute("uuid", note.uuid);
     noteElement.innerHTML = `
             <h3>${note.title}</h3>
             <p>${note.description}</p>
@@ -85,13 +86,18 @@ document.getElementById("note-form").addEventListener("submit", async (e) => {
 
 async function removeNote(uuid) {
   try {
-    const response = await fetch(`${API_BASE_URL}/remove-note/${uuid}`, {
+    const response = await fetch(`${API_BASE_URL}/remove-note`, {
       method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ uuid: uuid })
     });
 
     if (!response.ok) throw new Error("Failed to remove note");
 
-    fetchNotes(); // Refresh notes
+    const noteElement = document.querySelector(`.note[uuid="${uuid}"]`);
+    if (noteElement) {
+      noteElement.remove();
+    }
   } catch (error) {
     console.error(error);
   }

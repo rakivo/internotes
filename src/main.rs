@@ -3,8 +3,8 @@ use std::net::{IpAddr, UdpSocket};
 
 use r2d2::Pool;
 use uuid::Uuid;
-use serde_json::json;
 use dashmap::DashMap;
+use serde_json::json;
 use actix_files::Files;
 use rusqlite::{params, Result};
 use qrcodegen::{QrCode, QrCodeEcc};
@@ -14,7 +14,7 @@ use r2d2_sqlite::SqliteConnectionManager;
 use actix_web::{
     get, put, delete,
     App, HttpServer, HttpResponse,
-    Responder, middleware::Logger, web::{self, Path, Data, Json}
+    Responder, middleware::Logger, web::{self, Data, Json}
 };
 
 mod qr;
@@ -28,6 +28,13 @@ const PORT: u16 = 6969;
 type UnixTimeStamp = i64;
 type Notes = DashMap::<Uuid, Arc::<Note>>;
 type DbPool = Pool::<SqliteConnectionManager>;
+
+mod json {
+    use super::Deserialize;
+
+    #[derive(Deserialize)]
+    pub struct Uuid { pub uuid: super::Uuid }
+}
 
 #[repr(u8)]
 #[derive(Debug, FromStr, Display, Serialize, Deserialize)]
@@ -109,22 +116,22 @@ async fn get_notes(state: Data::<Server>) -> impl Responder {
     HttpResponse::Ok().body(serde_json::to_string(&notes).unwrap())
 }
 
-#[delete("/remove-note/{uuid}")]
-async fn remove_note(state: Data::<Server>, uuid: Path::<Uuid>) -> impl Responder {
-    let uuid = uuid.into_inner();
+#[inline]
+fn get_default_local_ip_addr() -> Option::<IpAddr> {
+    let sock = UdpSocket::bind("0.0.0.0:0").ok()?;
+    sock.connect("1.1.1.1:80").ok()?;
+    sock.local_addr().ok().map(|addr| addr.ip())
+}
+
+#[delete("/remove-note")]
+async fn remove_note(state: Data::<Server>, json: Json::<json::Uuid>) -> impl Responder {
+    let uuid = json.into_inner().uuid;
     if let Some((.., note)) = state.notes.remove(&uuid) {
         state.removed_notes.lock().unwrap().push(note);
         HttpResponse::Ok().json(json!({"status": "note removed successfully"}))
     } else {
         HttpResponse::NotFound().json(json!({"status": "note not found"}))
     }
-}
-
-#[inline]
-fn get_default_local_ip_addr() -> Option::<IpAddr> {
-    let sock = UdpSocket::bind("0.0.0.0:0").ok()?;
-    sock.connect("1.1.1.1:80").ok()?;
-    sock.local_addr().ok().map(|addr| addr.ip())
 }
 
 #[actix_web::main]
