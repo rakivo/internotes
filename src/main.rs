@@ -48,7 +48,6 @@ struct Note {
     description: Box::<str>,
 }
 
-type Notes = DashMap::<Uuid, Arc::<Note>>;
 
 struct Server {
     notes: Notes,
