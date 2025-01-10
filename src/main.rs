@@ -26,6 +26,7 @@ mod stb_image_write;
 const PORT: u16 = 6969;
 
 type UnixTimeStamp = i64;
+type Notes = DashMap::<Uuid, Arc::<Note>>;
 type DbPool = Pool::<SqliteConnectionManager>;
 
 #[repr(u8)]
