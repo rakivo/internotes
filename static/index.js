@@ -39,7 +39,7 @@ async function fetchNotes() {
 function displayNotes(notes) {
   const notesContainer = document.getElementById("notes");
   notesContainer.innerHTML = "";
-
+  notes.sort((a, b) => b.mod_time - a.mod_time);
   notes.forEach(note => {
     const noteElement = document.createElement("div");
     noteElement.className = "note";
