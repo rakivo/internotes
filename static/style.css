@@ -2,13 +2,21 @@ body {
     font-family: Arial, sans-serif;
     margin: 0;
     padding: 0;
+    width: 100vw;
     background-color: #fff;
+    width: 100vw;
     color: #333;
+    overflow-x: hidden;
 }
 
 #app {
-    max-width: 600px;
+    width: 100%;
+    max-width: 1200px;
     margin: 20px auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-sizing: border-box;
 }
 
 form input, form textarea, form, form button {
@@ -16,6 +24,13 @@ form input, form textarea, form, form button {
     font-size: 16px;
     border: 1px solid #ccc;
     border-radius: 4px;
+}
+
+#notes-container {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
 form button {
@@ -30,6 +45,7 @@ form button:hover {
 }
 
 .note {
+    max-width: 600px;
     background: white;
     padding: 21px;
     border-radius: 8px;
@@ -37,6 +53,7 @@ form button:hover {
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     height: 172px;
     transition: box-shadow 0.2s;
+    width: calc(100vw * 0.7628)
 }
 
 .note:hover {
@@ -142,13 +159,13 @@ ul {
     border-radius: 9px;
     position: relative;
     top: -206px;
-    left: 309px;
+    left: 370px;
 }
 
 .note-status-dropdown::before {
     content: "";
     position: absolute;
-    right: 20px;
+    right: 167px;
     top: 24px;
     z-index: 9999;
     width: 12px;
@@ -234,6 +251,7 @@ ul {
 }
 
 .delete-btn {
+    z-index: 2;
     background: none;
     border: none;
     cursor: pointer;
@@ -264,6 +282,8 @@ form {
 }
 
 #note-form {
+    max-width: 550px;
+    min-width: calc(min(65%, 550px));
     background: white;
     padding: 20px;
     border-radius: 8px;
@@ -321,3 +341,28 @@ h1, h2 {
     }
 }
 
+@media (max-width: 566px) {
+    .note-status-dropdown::before {
+        right: calc(max(220px, 19vh));
+    }
+
+    .note-status-options {
+        right: calc(max(110px, 9.5vh));
+    }
+
+    .status-input {
+        right: 25vh;
+        opacity: 0;
+    }
+
+    .delete-btn {
+        display: none;
+    }
+}
+
+@media (max-width: 658px) {
+    .note-status-dropdown input {
+        opacity: 0;
+        left: -1.5vh;
+    }
+}
