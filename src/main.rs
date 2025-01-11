@@ -87,6 +87,7 @@ struct Note {
     description: Box::<str>,
 }
 
+#[repr(transparent)]
 struct Db(Connection);
 
 mod db {
@@ -96,7 +97,7 @@ mod db {
 
     pub const FILE_PATH: &str = "internotes.db";
     pub const DB_INSERTION_NOTES_COUNT_THRESHOLD: usize = 5;
-    pub const DB_INSERTION_DURATION_THRESHOLD: Duration = Duration::from_secs(30);
+    pub const DB_INSERTION_DURATION_THRESHOLD: Duration = Duration::from_secs(15);
 }
 
 impl Db {
@@ -261,9 +262,9 @@ impl DbThread {
 
 struct Server {
     notes: AtomicNotes,
-    removed_notes: AtomicRemovedNotes,
     qr_bytes: web::Bytes,
-    changed_notes_count: Arc::<AtomicUsize>,
+    removed_notes: AtomicRemovedNotes,
+    changed_notes_count: Arc::<AtomicUsize>
 }
 
 impl Server {
@@ -295,7 +296,7 @@ async fn new_note(state: Data::<Server>, note: Json::<Note>) -> impl Responder {
         let mut note = note.into_inner();
         note.db_status = NoteDbStatus::New;
         note.uuid = uuid;
-        state.insert_note(note);
+        state.insert_note(note)
     }
     HttpResponse::Ok().json(json!({"uuid": uuid}))
 }
@@ -339,6 +340,7 @@ fn get_default_local_ip_addr() -> Option::<IpAddr> {
 
 #[actix_web::main]
 async fn main() -> std::io::Result::<()> {
+    let local_ip = get_default_local_ip_addr().unwrap_or_else(|| panic!("could not find local IP address"));
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
     let db = Db::new();
@@ -357,7 +359,6 @@ async fn main() -> std::io::Result::<()> {
 
     let db_thread_handle = db_thread.spawn();
 
-    let local_ip = get_default_local_ip_addr().unwrap_or_else(|| panic!("could not find local IP address"));
     let server = Data::new(Server {
         notes, removed_notes, changed_notes_count,
         qr_bytes: {
