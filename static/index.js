@@ -58,31 +58,61 @@ function displayNotes(notes) {
       </div>
       <div class="note-description" contenteditable="true">${note.description}</div>
       <div class="status-container">
-        <span class="status-label">Status:</span>
-        <select class="note-status">
-          <option value="Active" ${note.status === 'Active' ? 'selected' : ''}>Active</option>
-          <option value="Completed" ${note.status === 'Completed' ? 'selected' : ''}>Completed</option>
-          <option value="Archived" ${note.status === 'Archived' ? 'selected' : ''}>Archived</option>
-        </select>
+        <div class="note-status-dropdown">
+          <input type="text" value="${note.status}" class="status-input" placeholder="status" readonly/>
+          <ul class="note-status-options">
+            <li class="note-status-option" data-value="Active">Active</li>
+            <li class="note-status-option" data-value="Completed">Completed</li>
+            <li class="note-status-option" data-value="Archived">Archived</li>
+          </ul>
+        </div>
       </div>
     `;
 
     const titleElement = noteElement.querySelector('.note-title');
     const descriptionElement = noteElement.querySelector('.note-description');
-    const statusElement = noteElement.querySelector('.note-status');
+    const dropdown = noteElement.querySelector('.note-status-dropdown');
+    const statusInput = dropdown.querySelector('.status-input');
+    const listOfOptions = dropdown.querySelectorAll('.note-status-option');
 
-    [titleElement, descriptionElement].forEach(element => {
-      element.addEventListener('blur', () => debouncedSaveNote(note.uuid));
-      element.addEventListener('input', () => debouncedSaveNote(note.uuid));
+    titleElement.setAttribute('data-placeholder', 'Title');
+    descriptionElement.setAttribute('data-placeholder', 'Description');
+
+    const toggleDropdown = (event) => {
+      event.stopPropagation();
+      dropdown.classList.toggle('opened');
+    };
+
+    const selectOption = (event) => {
+      const selectedValue = event.currentTarget.textContent;
+      statusInput.value = selectedValue;
+      updateNote(note.uuid);
+    };
+
+    const closeDropdownFromOutside = () => {
+      if (dropdown.classList.contains('opened')) {
+        dropdown.classList.remove('opened');
+      }
+    };
+
+    document.body.addEventListener('click', closeDropdownFromOutside);
+
+    listOfOptions.forEach((option) => {
+      option.addEventListener('click', selectOption);
     });
 
-    statusElement.addEventListener('change', () => debouncedSaveNote(note.uuid));
+    dropdown.addEventListener('click', toggleDropdown);
+
+    [titleElement, descriptionElement].forEach(element => {
+      element.addEventListener('blur', () => debouncedUpdateNote(note.uuid));
+      element.addEventListener('input', () => debouncedUpdateNote(note.uuid));
+    });
 
     notesContainer.appendChild(noteElement);
   });
 }
 
-function debouncedSaveNote(uuid) {
+function debouncedUpdateNote(uuid) {
   if (debounceTimers[uuid]) {
     clearTimeout(debounceTimers[uuid]);
   }
@@ -98,7 +128,7 @@ async function updateNote(uuid) {
     uuid,
     title: noteElement.querySelector('.note-title').textContent,
     description: noteElement.querySelector('.note-description').textContent,
-    status: noteElement.querySelector('.note-status').value,
+    status: noteElement.querySelector('.status-input').value,
     mod_time: Math.floor(Date.now() / 1000)
   };
 
@@ -185,7 +215,7 @@ function setupCustomDropdown() {
       optionDiv.addEventListener('click', () => {
         selected.textContent = option.textContent;
         selectElement.value = option.value;
-        debouncedSaveNote(selectElement.closest('.note').getAttribute('uuid'));
+        debouncedUpdateNote(selectElement.closest('.note').getAttribute('uuid'));
         options.querySelectorAll('div').forEach(el => el.classList.remove('selected'));
         optionDiv.classList.add('selected');
         options.classList.remove('show');

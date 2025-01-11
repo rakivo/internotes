@@ -31,10 +31,11 @@ form button:hover {
 
 .note {
     background: white;
-    padding: 20px;
+    padding: 21px;
     border-radius: 8px;
     margin-bottom: 20px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    height: 172px;
     transition: box-shadow 0.2s;
 }
 
@@ -50,29 +51,39 @@ form button:hover {
 }
 
 .note-title {
+    max-width: 27ch;
     font-size: 1.2em;
     font-weight: 600;
     margin: 0;
     padding: 4px;
+    overflow: hidden;
+    background: rgba(240, 240, 240, 1);
     min-width: 100px;
-    border-radius: 4px;
+    border-radius: 5.5px;
+    white-space: nowrap; /* Prevent wrapping */
+    text-overflow: ellipsis;
 }
 
 .note-title:empty:before {
     content: 'Title';
     color: #999;
+    display: inline-block;
 }
 
 .note-description {
     font-size: 1em;
+    z-index: 2;
+    position: relative;
     line-height: 1.5;
     margin: 0 0 12px 0;
+    word-wrap: break-word;
     padding: 4px;
-    min-height: 50px;
-    border-radius: 4px;
+    min-height: 134px;
+    border-radius: 5.5px;
 }
 
 .note-description:empty:before {
+    display: block;
     content: 'Description';
     color: #999;
 }
@@ -90,83 +101,136 @@ form button:hover {
     background: #f0f0f0;
 }
 
-.status-container {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+.note-title, .note-description {
+    padding: 0 4px;
+    min-width: 10px;
+    border-radius: 5.5px;
+    background: rgba(240, 240, 240, 0);
+    transition: background 0.2s;
 }
 
-.status-label {
-    font-weight: 500;
-    color: #666;
-}
-
-.status-container {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.status-label {
-    font-weight: 500;
-    color: #666;
-}
-
-.custom-dropdown {
-    position: relative;
+.note-title:empty:before, .note-description:empty:before {
+    content: attr(data-placeholder);
+    color: #999;
     display: inline-block;
-    width: 140px;
 }
 
-.custom-selected {
-    padding: 10px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    background-color: #f8f8f8;
-    cursor: pointer;
+[contenteditable]:hover, [contenteditable]:focus {
+    background: rgba(240, 240, 240, 1);
+}
+
+[contenteditable]:hover:empty, [contenteditable]:focus:empty {
+    background: rgba(240, 240, 240, 0.5);
+}
+
+.status-container {
+    z-index: 1;
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    font-size: 0.9em;
-    transition: background 0.2s;
+    gap: 8px;
 }
 
-.custom-selected:hover {
-    background-color: #e8e8e8;
+ul {
+    z-index: 1000;
+    list-style: none;
 }
 
-.custom-options {
-    display: none;
-    position: absolute;
-    top: 100%;
-    left: 0;
-    width: 100%;
+.note-status-dropdown {
+    width: 165px;
+    height: 4px;
     background: white;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-    z-index: 20;
+    border-radius: 9px;
+    position: relative;
+    top: -206px;
+    left: 309px;
 }
 
-.custom-options.show {
-    display: block;
+.note-status-dropdown::before {
+    content: "";
+    position: absolute;
+    right: 20px;
+    top: 24px;
+    z-index: 9999;
+    width: 12px;
+    height: 12px;
+    border: 2px solid grey;
+    border-top: transparent;
+    border-right: transparent;
+    transform: rotate(-45deg);
+    pointer-events: none;
+    transition: all 0.3s linear;
 }
 
-.custom-options div {
-    padding: 8px 10px;
+.note-status-dropdown input {
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    border-radius: 9px;
+    padding: 32px 24px;
     cursor: pointer;
-    font-size: 0.9em;
-    transition: background 0.2s;
+    border: none;
+    outline: none;
+    font-size: 20px;
+    position: absolute;
+    top: 0;
+    left: 0;
+    user-select: none;
 }
 
-.custom-options div:hover {
-    background-color: #e0e0e0;
+.note-status-dropdown .note-status-options {
+    width: 85%;
+    border-radius: 9px 9px 0 0;
+    padding: 8px;
+    cursor: pointer;
+    background: white;
+    border: none;
+    outline: none;
+    font-size: 20px;
+    overflow: hidden;
+    position: absolute;
+    top: 39px;
+    transition: all 0.15s ease;  
+    background: rgba(255, 255, 255, 0.55);
+    backdrop-filter: blur(4.5px);
+    -webkit-backdrop-filter: blur(4.5px);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+
+    /* default state of note-status-dropdown list */
+    /* it is not visible */
+    opacity: 0;
+    transform: translateY(-50px);
+    visibility: hidden;
 }
 
-.custom-options .selected {
-    background-color: #007bff;
+.note-status-dropdown .note-status-options .note-status-option {
+    box-shadow: 0 5px 2px rgba(124, 130, 141, 0.2);
+    position: relative;
+    padding: 8px 12px;
+    border-radius: 5px;
+    transition: all 0.2s ease;
+    color: #292d34;
+    margin: 4px 0;
+}
+
+.note-status-dropdown .note-status-options .note-status-option:not(:last-of-type) {
+    margin-bottom: 4px;
+}
+
+.note-status-dropdown .note-status-options .note-status-option:hover {
     color: white;
-    font-weight: bold;
+    background: #007bff;
+}
+
+.note-status-dropdown.opened .note-status-options {
+    opacity: 1;
+    z-index: 1000;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.note-status-dropdown.opened::before {
+    transform: rotate(-225deg);
+    top: 30px;
 }
 
 .delete-btn {
@@ -208,6 +272,10 @@ form {
 }
 
 h1, h2 {
+    font-family: "Mea Culpa", serif;
+    font-weight: 400;
+    font-size: 100px;
+    text-align: center;
     color: #333;
     margin-bottom: 20px;
 }
