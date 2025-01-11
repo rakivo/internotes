@@ -1,33 +1,50 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Notes App</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Mea+Culpa&family=Pinyon+Script&display=swap" rel="stylesheet">
-    <link
-      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=DM+Serif+Text:ital@0;1&display=swap"
-      rel="stylesheet"
-      />
-    <link href="style.css" rel="stylesheet">
-  </head>
-  <body>
-    <div id="qrcode-container">
-      <span>Loading QR Code...</span>
-    </div>
-    <div id="app">
-      <h1>Internotes</h1>
-      <form id="note-form">
-        <input type="text" id="title" placeholder="Title" required>
-        <textarea id="description" placeholder="Description" required></textarea>
-        <button type="submit">Add Note</button>
-      </form>
-      <div id="notes-container">
-        <div id="notes"></div>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Internotes</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inria+Serif:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&display=swap"
+    rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=DM+Serif+Text:ital@0;1&display=swap"
+    rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Mea+Culpa&family=Pinyon+Script&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="qrcode-container">
+    <span>Loading QR Code...</span>
+  </div>
+  <div id="app">
+    <h1>Internotes</h1>
+    <div class="columns">
+      <div class="column" data-column="active">
+        <h2>Active</h2>
+        <div class="note active" draggable="true">
+          <div class="note-title">Title placeholder</div>
+          <div class="note-description">Description placeholder...</div>
+        </div>
+      </div>
+      <div class="column" data-column="completed">
+        <h2>Completed</h2>
+        <div class="note completed" draggable="true">
+          <div class="note-title">Title placeholder</div>
+          <div class="note-description">Description placeholder...</div>
+        </div>
+      </div>
+      <div class="column" data-column="archived">
+        <h2>Archived</h2>
+        <div class="note archived" draggable="true">
+          <div class="note-title">Title placeholder</div>
+          <div class="note-description">Description placeholder...</div>
+        </div>
       </div>
     </div>
-    <script src="index.js"></script>
-  </body>
+  </div>
+  <script src="index.js"></script>
+</body>
 </html>

@@ -1,7 +1,5 @@
 const API_BASE_URL = "";
 
-let debounceTimers = {};
-
 window.addEventListener("load", async () => {
   const qrcodeContainer = document.getElementById("qrcode-container");
   fetch("/qr.png")
@@ -26,208 +24,106 @@ window.addEventListener("load", async () => {
     });
 });
 
-async function fetchNotes() {
-  try {
-    const response = await fetch(`${API_BASE_URL}/notes`);
-    if (!response.ok) throw new Error("failed to fetch notes");
-    const notes = await response.json();
-    displayNotes(notes);
-  } catch (error) {
-    console.error(error);
-  }
-}
+document.addEventListener("DOMContentLoaded", () => {
+  const columns = document.querySelectorAll(".column");
+  let draggedNote = null; // Store reference to the dragged note
 
-function displayNotes(notes) {
-  const notesContainer = document.getElementById("notes");
-  notesContainer.innerHTML = "";
-  notes.sort((a, b) => b.mod_time - a.mod_time);
-  
-  notes.forEach(note => {
-    const noteElement = document.createElement("div");
-    noteElement.className = "note";
-    noteElement.setAttribute("uuid", note.uuid);
-    
-    noteElement.innerHTML = `
-      <div class="note-header">
-        <div class="note-title" contenteditable="true">${note.title}</div>
-        <button class="delete-btn" onclick="removeNote('${note.uuid}')">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="25" height="25">
-            <path d="M18 6L6 18M6 6l12 12" fill="none" stroke="red" stroke-width="4" stroke-linecap="square" stroke-linejoin="round" />
-          </svg>
-        </button>
-      </div>
-      <div class="note-description" contenteditable="true">${note.description}</div>
-      <div class="status-container">
-        <div class="note-status-dropdown">
-          <input type="text" value="${note.status}" class="status-input" placeholder="status" readonly/>
-          <ul class="note-status-options">
-            <li class="note-status-option" data-value="Active">Active</li>
-            <li class="note-status-option" data-value="Completed">Completed</li>
-            <li class="note-status-option" data-value="Archived">Archived</li>
-          </ul>
-        </div>
-      </div>
-    `;
-
-    const titleElement = noteElement.querySelector('.note-title');
-    const descriptionElement = noteElement.querySelector('.note-description');
-    const dropdown = noteElement.querySelector('.note-status-dropdown');
-    const statusInput = dropdown.querySelector('.status-input');
-    const listOfOptions = dropdown.querySelectorAll('.note-status-option');
-
-    titleElement.setAttribute('data-placeholder', 'Title');
-    descriptionElement.setAttribute('data-placeholder', 'Description');
-
-    const toggleDropdown = (event) => {
-      event.stopPropagation();
-      dropdown.classList.toggle('opened');
-    };
-
-    const selectOption = (event) => {
-      const selectedValue = event.currentTarget.textContent;
-      statusInput.value = selectedValue;
-      updateNote(note.uuid);
-    };
-
-    const closeDropdownFromOutside = () => {
-      if (dropdown.classList.contains('opened')) {
-        dropdown.classList.remove('opened');
-      }
-    };
-
-    document.body.addEventListener('click', closeDropdownFromOutside);
-
-    listOfOptions.forEach((option) => {
-      option.addEventListener('click', selectOption);
-    });
-
-    dropdown.addEventListener('click', toggleDropdown);
-
-    [titleElement, descriptionElement].forEach(element => {
-      element.addEventListener('blur', () => debouncedUpdateNote(note.uuid));
-      element.addEventListener('input', () => debouncedUpdateNote(note.uuid));
-    });
-
-    notesContainer.appendChild(noteElement);
+  // Handle drag start
+  document.addEventListener("dragstart", (e) => {
+    if (e.target.classList.contains("note")) {
+      draggedNote = e.target; // Store the dragged note
+      e.target.classList.add("dragging");
+    }
   });
-}
 
-function debouncedUpdateNote(uuid) {
-  if (debounceTimers[uuid]) {
-    clearTimeout(debounceTimers[uuid]);
+  // Handle drag end
+  document.addEventListener("dragend", (e) => {
+    if (e.target.classList.contains("note")) {
+      e.target.classList.remove("dragging");
+      columns.forEach((column) => column.classList.remove("highlight"));
+    }
+  });
+
+  // Allow dropping on columns
+  columns.forEach((column) => {
+    column.addEventListener("dragover", (e) => {
+      e.preventDefault(); // Allow dropping
+      column.classList.add("highlight"); // Highlight column
+
+      // Remove previous status classes
+      draggedNote.classList.remove("active", "completed", "archived");
+      if (window.innerWidth < 610) {
+        // Determine the correct column based on Y position
+        const targetColumn = getColumnByYAxis(columns, e.clientY);
+        if (targetColumn) {
+          updateNoteStatus(targetColumn, draggedNote);
+        }
+      } else {
+        // For wider screens, use dataset.column
+        updateNoteStatus(column, draggedNote);
+      }
+
+      // Determine the drop position (Y-axis)
+      const afterElement = getDragAfterElement(column, e.clientY);
+      if (afterElement == null) {
+        column.appendChild(draggedNote); // Append to the end if no element is below
+      } else {
+        column.insertBefore(draggedNote, afterElement); // Insert before the found element
+      }
+    });
+
+    column.addEventListener("dragleave", () => {
+      column.classList.remove("highlight");
+    });
+
+    column.addEventListener("drop", (e) => {
+      e.preventDefault();
+      column.classList.remove("highlight");
+
+      // Confirm the dragged note adopts the target column's color
+      if (window.innerWidth < 610) {
+        const targetColumn = getColumnByYAxis(columns, e.clientY);
+        if (targetColumn) {
+          targetColumn.appendChild(draggedNote);
+          updateNoteStatus(targetColumn, draggedNote);
+        }
+      } else {
+        column.appendChild(draggedNote);
+        updateNoteStatus(column, draggedNote);
+      }
+
+      draggedNote = null; // Clear the dragged note reference
+    });
+  });
+
+  function getDragAfterElement(container, y) {
+    const draggableElements = [...container.querySelectorAll(".note:not(.dragging)")];
+
+    return draggableElements.reduce((closest, child) => {
+      const box = child.getBoundingClientRect();
+      const offset = y - box.top - box.height / 2;
+      if (offset < 0 && offset > closest.offset) {
+        return { offset: offset, element: child };
+      } else {
+        return closest;
+      }
+    }, { offset: Number.NEGATIVE_INFINITY }).element;
   }
 
-  debounceTimers[uuid] = setTimeout(() => {
-    updateNote(uuid);
-  }, 1000);
-}
-
-async function updateNote(uuid) {
-  const noteElement = document.querySelector(`.note[uuid="${uuid}"]`);
-  const updatedNote = {
-    uuid,
-    title: noteElement.querySelector('.note-title').textContent,
-    description: noteElement.querySelector('.note-description').textContent,
-    status: noteElement.querySelector('.status-input').value,
-    mod_time: Math.floor(Date.now() / 1000)
-  };
-
-  try {
-    const response = await fetch(`${API_BASE_URL}/update-note`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(updatedNote),
+  function getColumnByYAxis(columns, y) {
+    return Array.from(columns).find((column) => {
+      const box = column.getBoundingClientRect();
+      return y >= box.top && y <= box.bottom;
     });
-    
-    if (!response.ok) throw new Error("Failed to update note");
-  } catch (error) {
-    console.error(error);
   }
-}
 
-document.getElementById("note-form").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const title = document.getElementById("title").value;
-  const description = document.getElementById("description").value;
-  const note = {
-    title,
-    description,
-    status: "Active",
-    mod_time: Math.floor(Date.now() / 1000),
-  };
-  
-  try {
-    const response = await fetch(`${API_BASE_URL}/new-note`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(note),
-    });
-    if (!response.ok) throw new Error("failed to add note");
-    document.getElementById("note-form").reset();
-    fetchNotes();
-  } catch (error) {
-    console.error(error);
+  function updateNoteStatus(column, note) {
+    if (column.dataset.column === "active") {
+      note.classList.add("active");
+    } else if (column.dataset.column === "completed") {
+      note.classList.add("completed");
+    } else if (column.dataset.column === "archived") {
+      note.classList.add("archived");
+    }
   }
 });
-
-async function removeNote(uuid) {
-  try {
-    const response = await fetch(`${API_BASE_URL}/remove-note`, {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ uuid: uuid })
-    });
-    if (!response.ok) throw new Error("Failed to remove note");
-    const noteElement = document.querySelector(`.note[uuid="${uuid}"]`);
-    if (noteElement) {
-      noteElement.remove();
-    }
-  } catch (error) {
-    console.error(error);
-  }
-}
-
-fetchNotes();
-
-function setupCustomDropdown() {
-  const statusContainers = document.querySelectorAll('.status-container');
-  
-  statusContainers.forEach(container => {
-    const selectElement = container.querySelector('.note-status');
-    const dropdown = document.createElement('div');
-    dropdown.className = 'custom-dropdown';
-    
-    const selected = document.createElement('div');
-    selected.className = 'custom-selected';
-    selected.textContent = selectElement.options[selectElement.selectedIndex].textContent;
-    
-    const options = document.createElement('div');
-    options.className = 'custom-options';
-    
-    Array.from(selectElement.options).forEach(option => {
-      const optionDiv = document.createElement('div');
-      optionDiv.textContent = option.textContent;
-      optionDiv.className = option.value === selectElement.value ? 'selected' : '';
-      optionDiv.addEventListener('click', () => {
-        selected.textContent = option.textContent;
-        selectElement.value = option.value;
-        debouncedUpdateNote(selectElement.closest('.note').getAttribute('uuid'));
-        options.querySelectorAll('div').forEach(el => el.classList.remove('selected'));
-        optionDiv.classList.add('selected');
-        options.classList.remove('show');
-      });
-      options.appendChild(optionDiv);
-    });
-    
-    dropdown.appendChild(selected);
-    dropdown.appendChild(options);
-    selected.addEventListener('click', () => options.classList.toggle('show'));
-    container.replaceChild(dropdown, selectElement);
-  });
-}
-
-document.addEventListener('DOMContentLoaded', setupCustomDropdown);

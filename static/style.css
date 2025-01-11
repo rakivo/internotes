@@ -1,12 +1,13 @@
 body {
-    font-family: Arial, sans-serif;
-    margin: 0;
-    padding: 0;
-    width: 100vw;
-    background-color: #fff;
-    width: 100vw;
-    color: #333;
+    max-width: 100%;
     overflow-x: hidden;
+    font-family: 'Arial', sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    background-color: #fff;
 }
 
 #app {
@@ -17,287 +18,6 @@ body {
     flex-direction: column;
     align-items: center;
     box-sizing: border-box;
-}
-
-form input, form textarea, form, form button {
-    padding: 10px;
-    font-size: 16px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-}
-
-#notes-container {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-
-form button {
-    background-color: #007bff;
-    color: white;
-    border: none;
-    cursor: pointer;
-}
-
-form button:hover {
-    background-color: #0056b3;
-}
-
-.note {
-    max-width: 600px;
-    background: white;
-    padding: 21px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    height: 172px;
-    transition: box-shadow 0.2s;
-    width: calc(100vw * 0.7628)
-}
-
-.note:hover {
-    box-shadow: 0 3px 6px rgba(0,0,0,0.15);
-}
-
-.note-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
-}
-
-.note-title {
-    max-width: 27ch;
-    font-size: 1.2em;
-    font-weight: 600;
-    margin: 0;
-    padding: 4px;
-    overflow: hidden;
-    background: rgba(240, 240, 240, 1);
-    min-width: 100px;
-    border-radius: 5.5px;
-    white-space: nowrap; /* Prevent wrapping */
-    text-overflow: ellipsis;
-}
-
-.note-title:empty:before {
-    content: 'Title';
-    color: #999;
-    display: inline-block;
-}
-
-.note-description {
-    font-size: 1em;
-    z-index: 2;
-    position: relative;
-    line-height: 1.5;
-    margin: 0 0 12px 0;
-    word-wrap: break-word;
-    padding: 4px;
-    min-height: 134px;
-    border-radius: 5.5px;
-}
-
-.note-description:empty:before {
-    display: block;
-    content: 'Description';
-    color: #999;
-}
-
-[contenteditable] {
-    outline: none;
-    cursor: text;
-}
-
-[contenteditable]:hover {
-    background: #f8f8f8;
-}
-
-[contenteditable]:focus {
-    background: #f0f0f0;
-}
-
-.note-title, .note-description {
-    padding: 0 4px;
-    min-width: 10px;
-    border-radius: 5.5px;
-    background: rgba(240, 240, 240, 0);
-    transition: background 0.2s;
-}
-
-.note-title:empty:before, .note-description:empty:before {
-    content: attr(data-placeholder);
-    color: #999;
-    display: inline-block;
-}
-
-[contenteditable]:hover, [contenteditable]:focus {
-    background: rgba(240, 240, 240, 1);
-}
-
-[contenteditable]:hover:empty, [contenteditable]:focus:empty {
-    background: rgba(240, 240, 240, 0.5);
-}
-
-.status-container {
-    z-index: 1;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-ul {
-    z-index: 1000;
-    list-style: none;
-}
-
-.note-status-dropdown {
-    width: 165px;
-    height: 4px;
-    background: white;
-    border-radius: 9px;
-    position: relative;
-    top: -206px;
-    left: 370px;
-}
-
-.note-status-dropdown::before {
-    content: "";
-    position: absolute;
-    right: 167px;
-    top: 24px;
-    z-index: 9999;
-    width: 12px;
-    height: 12px;
-    border: 2px solid grey;
-    border-top: transparent;
-    border-right: transparent;
-    transform: rotate(-45deg);
-    pointer-events: none;
-    transition: all 0.3s linear;
-}
-
-.note-status-dropdown input {
-    z-index: 1;
-    width: 100%;
-    height: 100%;
-    border-radius: 9px;
-    padding: 32px 24px;
-    cursor: pointer;
-    border: none;
-    outline: none;
-    font-size: 20px;
-    position: absolute;
-    top: 0;
-    left: 0;
-    user-select: none;
-}
-
-.note-status-dropdown .note-status-options {
-    width: 85%;
-    border-radius: 9px 9px 0 0;
-    padding: 8px;
-    cursor: pointer;
-    background: white;
-    border: none;
-    outline: none;
-    font-size: 20px;
-    overflow: hidden;
-    position: absolute;
-    top: 39px;
-    transition: all 0.15s ease;  
-    background: rgba(255, 255, 255, 0.55);
-    backdrop-filter: blur(4.5px);
-    -webkit-backdrop-filter: blur(4.5px);
-    border: 1px solid rgba(255, 255, 255, 0.18);
-
-    /* default state of note-status-dropdown list */
-    /* it is not visible */
-    opacity: 0;
-    transform: translateY(-50px);
-    visibility: hidden;
-}
-
-.note-status-dropdown .note-status-options .note-status-option {
-    box-shadow: 0 5px 2px rgba(124, 130, 141, 0.2);
-    position: relative;
-    padding: 8px 12px;
-    border-radius: 5px;
-    transition: all 0.2s ease;
-    color: #292d34;
-    margin: 4px 0;
-}
-
-.note-status-dropdown .note-status-options .note-status-option:not(:last-of-type) {
-    margin-bottom: 4px;
-}
-
-.note-status-dropdown .note-status-options .note-status-option:hover {
-    color: white;
-    background: #007bff;
-}
-
-.note-status-dropdown.opened .note-status-options {
-    opacity: 1;
-    z-index: 1000;
-    visibility: visible;
-    transform: translateY(0);
-}
-
-.note-status-dropdown.opened::before {
-    transform: rotate(-225deg);
-    top: 30px;
-}
-
-.delete-btn {
-    z-index: 2;
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: 0.9em;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: transform 0.2s;
-}
-
-.delete-btn:hover {
-    transform: scale(1.1);
-}
-
-.delete-btn svg {
-    fill: #ff4757;
-    transition: fill 0.2s;
-}
-
-.delete-btn:hover svg {
-    fill: #ff6b81;
-}
-
-form {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-#note-form {
-    max-width: 550px;
-    min-width: calc(min(65%, 550px));
-    background: white;
-    padding: 20px;
-    border-radius: 8px;
-    margin-bottom: 30px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-
-h1, h2 {
-    font-family: "Mea Culpa", serif;
-    font-weight: 400;
-    font-size: 100px;
-    text-align: center;
-    color: #333;
-    margin-bottom: 20px;
 }
 
 #qrcode-container {
@@ -326,43 +46,164 @@ h1, h2 {
     color: black;
 }
 
-@media (max-width: 1000px) {
+h1 {
+    font-family: "Mea Culpa", serif;
+    font-weight: 400;
+    font-size: 100px;
+    text-align: center;
+    color: #333;
+    margin-bottom: 20px;
+    bottom: 105px;
+    position: relative;
+}
+
+h2 {
+    margin: 0;
+    position: relative;
+    top: 25px;
+    font-family: "Mea Culpa", serif;
+    font-weight: 500;
+    font-size: 50px;
+    text-align: center;
+    color: #333;
+    margin-bottom: 20px;
+}
+
+.note-container {
+    display: flex;
+    gap: 20px;
+}
+
+.note {
+    cursor: grab;
+    width: 200px;
+    border-radius: 10px;
+    padding: 10px;
+    background-color: white;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+.note-title {
+    font-size: 22.8px;
+    font-family: "Inria Serif", serif;
+    font-weight: 700;
+    font-style: normal;
+    border-radius: 6px;
+    padding: 5px 10px;
+    background-color: rgba(255, 255, 255, 0.32);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.22);
+    margin-bottom: 10px;
+    text-align: left;
+    width: fit-content;
+}
+
+.note-description {
+    font-size: 15px;
+    font-family: "Inria Serif", serif;
+    font-weight: 700;
+    font-style: normal;
+    flex-grow: 1;
+    font-size: 14px;
+    border-radius: 6px;
+    padding: 10px;
+    background-color: rgba(255, 255, 255, 0.32);
+    box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.22);
+    text-align: left;
+    overflow: hidden;
+    word-wrap: break-word;
+    min-height: 150px;
+}
+
+.note.active {
+    background-color: #B6C7FF;
+}
+
+.note.completed {
+    background-color: #9EE5A6;
+}
+
+.note.archived {
+    background-color: #919191;
+}
+
+.columns {
+    bottom: 100px;
+    display: flex;
+    gap: 45px;
+    position: relative;
+}
+
+.column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    min-width: 220px;
+    position: relative;
+    border-radius: 10px;
+    border: 2px solid transparent;
+    transition: border 0.3s, background-color 0.3s;
+}
+
+.column.highlight {
+    border-color: #007bff;
+    background-color: #e0f3ff;
+}
+
+.note.dragging {
+    cursor: grabbing;
+    outline: none;
+    border: none; 
+    box-shadow: none;
+    opacity: 0.8;
+}
+
+@media (max-width: 875px) {
+    h1 {
+        bottom: 4px;
+        margin-bottom: 58px;
+    }
+}
+
+
+@media (max-width: 765px) and (min-width: 686px) {
+    .note {
+        max-width: 220px;
+        min-width: 185px;
+        width: 25vw;
+    }
+
+    .columns {
+        gap: 0px;
+    }
+
+    .column {
+        flex: 1;
+        width: calc(33.33% - 10px);
+    }
+}
+
+@media (max-width: 686px) {
+    h1 {
+        bottom: -772px;
+        margin-bottom: 344px;
+    }
+
     #qrcode-container {
-        right: 0;
-        position: relative;
-        display: flex;
-        margin: 0 auto;
-        margin-top: 20px;
-        margin-bottom: 20px;
+        left: 50%;
+        transform: translate(-50%, 0);
     }
 
-    #toggle_mode-container {
-        margin-top: 0;
-    }
-}
-
-@media (max-width: 566px) {
-    .note-status-dropdown::before {
-        right: calc(max(220px, 19vh));
+    .columns {
+        flex-direction: column;
+        gap: 20px;
+        margin-top: 500px;
     }
 
-    .note-status-options {
-        right: calc(max(110px, 9.5vh));
-    }
-
-    .status-input {
-        right: 25vh;
-        opacity: 0;
-    }
-
-    .delete-btn {
-        display: none;
-    }
-}
-
-@media (max-width: 658px) {
-    .note-status-dropdown input {
-        opacity: 0;
-        left: -1.5vh;
+    .column {
+        width: 100%;
     }
 }
