@@ -97,7 +97,10 @@ h2 {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.22);
     margin-bottom: 10px;
     text-align: left;
-    width: fit-content;
+    box-sizing: border-box;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
 }
 
 .note-description {
@@ -206,4 +209,41 @@ h2 {
     .column {
         width: 100%;
     }
+}
+
+.context-menu {
+    display: none;
+    position: fixed;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+}
+
+.context-menu ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.context-menu li {
+    padding: 8px 12px;
+    cursor: pointer;
+}
+
+.context-menu li:hover {
+    background-color: #f0f0f0;
+}
+
+[contenteditable="true"]:focus {
+  outline: none;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+}
+
+.note-title[contenteditable="true"]:empty:before,
+.note-description[contenteditable="true"]:empty:before {
+  content: attr(data-placeholder);
+  color: rgba(0, 0, 0, 0.5);
 }
