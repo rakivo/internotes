@@ -77,7 +77,6 @@ enum NoteDbStatus {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct Note {
-    #[serde(skip_deserializing)]
     uuid: Uuid,
     #[serde(skip)]
     db_status: NoteDbStatus,
@@ -290,15 +289,13 @@ async fn get_notes(state: Data::<Server>) -> impl Responder {
 #[inline]
 #[post("/new-note")]
 async fn new_note(state: Data::<Server>, note: Json::<Note>) -> impl Responder {
-    let uuid = Uuid::new_v4();
     state.changed_notes_count.fetch_add(1, Ordering::Relaxed);
     {
         let mut note = note.into_inner();
         note.db_status = NoteDbStatus::New;
-        note.uuid = uuid;
         state.insert_note(note)
     }
-    HttpResponse::Ok().json(json!({"uuid": uuid}))
+    HttpResponse::Ok().finish()
 }
 
 #[put("/update-note")]
