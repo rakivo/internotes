@@ -154,13 +154,26 @@ document.addEventListener("DOMContentLoaded", () => {
       }, 0);
 
       const handleGlobalClick = (event) => {
-        if (!event.target.closest('.note') || !event.target.closest('.note-title, .note-description')) {
+        const clickedInsideNote = event.target.closest('.note');
+
+        if (!clickedInsideNote) {
+          // Disable editing for all editable fields
           editableFields.forEach((field) => {
             field.setAttribute('contenteditable', 'false');
           });
 
+          // Remove the global click handler
           document.removeEventListener('click', handleGlobalClick);
           editingMode = false;
+
+          // Validate and ensure content is not empty
+          editableFields.forEach((field) => {
+            if (!field.textContent.trim()) {
+              field.textContent = field.classList.contains('note-title') ? 'New Note' : 'Add description...';
+            }
+          });
+
+          activeNote = null;
         }
       };
 
